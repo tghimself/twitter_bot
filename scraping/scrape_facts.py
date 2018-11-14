@@ -1,4 +1,4 @@
-# import required
+# import requ
 try:
     import requests
 except:
