@@ -28,7 +28,7 @@ def store_last_seen_id(last_seen_id,filename):
 
 def get_random_fact(username): # improve this function
     '''returns a tweet of validfor a particular username'''
-    with shelve.open('.\\scraping\\data') as fact_dict:                         # open the shelve file
+    with shelve.open('..\\scraping\\data') as fact_dict:                        # open the shelve file
         random_id = len(fact_dict.keys())                                       # store the number of topics present
         random_id = random.randint(0,random_id-1)                               # generate a random number b/w 0 and highest index a topic can have
         topic = list(fact_dict.keys())[random_id]                               # access the topic at the random index
