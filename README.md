@@ -4,7 +4,7 @@
 3. We will **NOT** be using any sort of machine learning or deep learning or NLP in this project.(not yet at least)
 4. Please document your code well.
 ### [UPDATE]
-The bot is presently responding with some relevant facts.
+The bot is presently responding with some relevant facts. checkout [here](https://twitter.com/bot03490095)
 ### [Soon Todo]
 1. Add more facts to the database to make the replies more relevant facts.
 2. Optimise the code, if need be.
