@@ -3,15 +3,15 @@ import time
 import shelve
 import string
 import nltk
+import random
+from datetime import date
 
-CONSUMER_KEY = ''
-CONSUMER_SECRET = ''
-ACCESS_KEY = ''
-ACCESS_SECRET = ''
+my_username = "@bot03490095"
 
-auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
-api = tweepy.API(auth)
+with shelve.open("keys") as keys:
+    auth = tweepy.OAuthHandler(keys['CONSUMER_KEY'], keys['CONSUMER_SECRET'])
+    auth.set_access_token(keys['ACCESS_KEY'], keys['ACCESS_SECRET'])
+    api = tweepy.API(auth)
 
 FILE_NAME = 'last_seen_id.txt'
 
@@ -43,22 +43,45 @@ def get_random_fact(username):
         return fact
 
 
+def check_subscribe(tweet, username):
+    print("checking for sub\n found", tweet.strip(" .!?/").casefold())
+    if tweet.strip(" .!?/").casefold() == 'subscribe':
+        with shelve.open("subscribers", writeback = True) as subs:
+            subs.setdefault("usernames", [])
+            if username not in subs['usernames']:
+                subs['usernames'].append(username)
+                return "@{} Success! You have been subscribed for daily facts. Tweet UNSUBSCRIBE to stop recieving daily tweets.".format(username)
+            return "@{} You are already subscribed! Hit me with a topic for a fact!".format(username)
+    elif tweet.strip(" .!?/").casefold() == "unsubscribe":
+         with shelve.open("subscribers", writeback = True) as subs:
+            subs.setdefault("usernames", [])
+            if username in subs['usernames']:
+                subs['usernames'].remove(username)
+                return "@{} You have been unsubscribed. Thank you for putting up with me this long!".format(username)
+            return "@{} You are already unsubscribed!".format(username)
+    return False
+
+
 def get_relevant_fact(tweet,username):                                          # takes username and tweet
+    tweet = tweet.replace(my_username,"")                                       # remove my_username from the tweet
+    result = check_subscribe(tweet, username)
+    if result:
+        return result                                                        # return a tuple
+
     with shelve.open('.\\scraping\\database') as db:
             tweet = tagify(tweet)                                               # get the set of tags
             maximum = 0                                                         # set the maximum of common tags to zero
-            fact = ""
             fact_list = []                                                      # it will contain the facts which have the maximum common tags
             for i in db.keys():
                 if len(tweet.intersection(db[i])) > maximum:                    # maximize the maximum
                     maximum = len(tweet.intersection(db[i]))
                     fact_list.clear()                                           # since we found the new maximum, clear the list
                     fact_list.append(i)                                         # and add the new fact to the list
-                elif len(tweet.intersection(db[i])) == maximum:                 
+                elif len(tweet.intersection(db[i])) == maximum:
                     fact_list.append(i)                                         # also add any other fact which has same common tags
-            if fact == "":
-                return get_random_fact(username)                                # if there was no intersection, then fetch a random tweet
-            return random.choice(fact_list)                                     # else just choose a random fact from the list
+            if len(fact_list) == 0:
+                return '@' + username + ' Did you know? \"' + get_random_fact(username)  + '"'                              # if there was no intersection, then fetch a random tweet
+            return '@' + username + ' Did you know? \"' + random.choice(fact_list)  + '"'                                    # else just choose a random fact from the list
 
 
 
@@ -69,12 +92,36 @@ def reply():
     if len(mentions) == 0:
         print("no new tweet found...")
     for mention in reversed(mentions):
-        print(mention.id,mention.full_text)
+        print(mention.user.screen_name,mention.id,mention.full_text)
         last_seen_id = mention.id
-        store_last_seen_id(last_seen_id, FILE_NAME)
+
         fact = get_relevant_fact(mention.full_text,mention.user.screen_name)
-        api.update_status('@' + mention.user.screen_name + ' Did you know? \"' + fact + '"', mention.id)
+        print("Reply:", fact)
+        api.update_status(fact, mention.id)
+        store_last_seen_id(last_seen_id, FILE_NAME)
+
+
+
+def daily_update():
+    with shelve.open("subscribers") as subs:
+        for username in subs.get("usernames", []):                                     
+            fact = get_random_fact(username)
+            try:
+                api.update_status('@' + username + ' Your daily fact: \"' + fact + '"')
+            except:
+                pass
+
+
+
 
 while True:
+    with shelve.open("subscribers") as subs:
+        subs.setdefault("date", date.today())
+        today = subs["date"]
+        subs["date"] = date.today()
+
+    if today != date.today():
+        daily_update()
+        today = date.today()
     reply()
     time.sleep(15)
